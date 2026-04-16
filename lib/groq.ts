@@ -1,9 +1,9 @@
-import type { GenerateRequest, GenerateResponse } from './types'
+import type { GenerateRequest, GenerateResponse } from "./types";
 
 export function buildStoryPrompt({ name, traits }: GenerateRequest): string {
   return `You are a dark comedy narrator specializing in villain origin stories.
 
-Generate an origin story for a villain named "${name}" with these personality traits: ${traits.join(', ')}.
+Generate an origin story for a villain named "${name}" with these personality traits: ${traits.join(", ")}.
 
 Rules:
 - Dark comedy tone: dramatic but self-aware, slightly absurd
@@ -20,26 +20,26 @@ Return ONLY valid JSON with this exact structure (no markdown, no explanation):
       "imagePrompt": "detailed visual description for image generation"
     }
   ]
-}`
+}`;
 }
 
 export function parseGroqResponse(raw: string): GenerateResponse {
-  let parsed: unknown
+  let parsed: unknown;
   try {
-    parsed = JSON.parse(raw)
+    parsed = JSON.parse(raw);
   } catch {
-    throw new Error(`Invalid JSON from Groq: ${raw.slice(0, 100)}`)
+    throw new Error(`Invalid JSON from Groq: ${raw.slice(0, 100)}`);
   }
 
   if (
-    typeof parsed !== 'object' ||
+    typeof parsed !== "object" ||
     parsed === null ||
-    !('title' in parsed) ||
-    !('scenes' in parsed) ||
+    !("title" in parsed) ||
+    !("scenes" in parsed) ||
     !Array.isArray((parsed as { scenes: unknown }).scenes)
   ) {
-    throw new Error('Groq response missing required fields')
+    throw new Error("Groq response missing required fields");
   }
 
-  return parsed as GenerateResponse
+  return parsed as GenerateResponse;
 }
