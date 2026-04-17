@@ -1,4 +1,3 @@
-import { NarrationPlayer } from "@/components/NarrationPlayer";
 import { ShareButton } from "@/components/ShareButton";
 import { StoryCarousel } from "@/components/StoryCarousel";
 import { getStory } from "@/lib/storage";
@@ -40,20 +39,22 @@ export default async function StoryPage({ params }: Props) {
         </p>
       </div>
 
-      <StoryCarousel scenes={story.scenes} />
+      <StoryCarousel
+        scenes={story.scenes}
+        audioUrl={story.audioUrl}
+        title={story.title}
+        name={story.name}
+      />
 
       <div className="sticky bottom-0 border-t border-[#2a2a2a] bg-[#0a0a0a]/95 backdrop-blur-sm">
-        <div className="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between gap-4 flex-wrap">
-          <NarrationPlayer audioUrl={story.audioUrl} />
-          <div className="flex items-center gap-4">
-            <ShareButton />
-            <Link
-              href="/"
-              className="font-[family-name:var(--font-display)] text-xs text-[#e8e0d0] opacity-50 hover:opacity-100 tracking-widest uppercase transition-opacity"
-            >
-              Create Yours →
-            </Link>
-          </div>
+        <div className="max-w-3xl mx-auto px-4 py-4 flex items-center justify-end gap-4">
+          <ShareButton />
+          <Link
+            href="/"
+            className="font-[family-name:var(--font-display)] text-xs text-[#e8e0d0] opacity-50 hover:opacity-100 tracking-widest uppercase transition-opacity"
+          >
+            Create Yours →
+          </Link>
         </div>
       </div>
     </div>
