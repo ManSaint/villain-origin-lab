@@ -87,6 +87,14 @@ export function StoryCarousel({ scenes, audioUrl, title, name }: Props) {
     if (playing) applySceneToAudio(index);
   }, [index]);
 
+  /** Prefetch the next scene's image while the user reads the current one. */
+  useEffect(() => {
+    const nextScene = scenes[index + 1];
+    if (!nextScene) return;
+    const img = new window.Image();
+    img.src = buildImageUrl(nextScene.imagePrompt);
+  }, [index, scenes]);
+
   function navigate(next: number) {
     setIndex(next);
   }
