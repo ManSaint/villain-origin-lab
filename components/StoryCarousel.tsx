@@ -11,23 +11,26 @@ type Props = {
   name: string;
 };
 
-/** Estimate seek time for a scene based on proportional character count. */
-function sceneSeekTime(
+/** Returns the estimated [start, end] timestamps for a scene within the full narration. */
+function sceneRange(
   title: string,
   name: string,
   scenes: Scene[],
   sceneIndex: number,
   duration: number,
-): number {
-  // Matches buildNarrationText: "{title}. The origin of {name}. ... scene0 ... scene1 ..."
+): [number, number] {
+  // Narration order: intro … scene0 … scene1 … scene2 …
   const intro = `${title}. The origin of ${name}.`;
   const parts = [intro, ...scenes.map((s) => s.text)];
-  const totalChars = parts.reduce((n, p) => n + p.length, 0);
-  // scene i starts after intro + scenes[0..i-1], i.e. parts[0..i]
-  const charsBefore = parts
-    .slice(0, sceneIndex + 1)
-    .reduce((n, p) => n + p.length, 0);
-  return (charsBefore / totalChars) * duration;
+  const total = parts.reduce((n, p) => n + p.length, 0);
+  // scene i occupies parts[i+1]; its start is after parts[0..i]
+  const start =
+    (parts.slice(0, sceneIndex + 1).reduce((n, p) => n + p.length, 0) / total) *
+    duration;
+  const end =
+    (parts.slice(0, sceneIndex + 2).reduce((n, p) => n + p.length, 0) / total) *
+    duration;
+  return [start, Math.min(end, duration)];
 }
 
 export function StoryCarousel({ scenes, audioUrl, title, name }: Props) {
@@ -35,6 +38,8 @@ export function StoryCarousel({ scenes, audioUrl, title, name }: Props) {
   const [playing, setPlaying] = useState(false);
   const [audioError, setAudioError] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
+  /** The timestamp at which we should stop playback for the current scene. */
+  const sceneEndRef = useRef<number | null>(null);
 
   const scene = scenes[index];
   if (!scene) return null;
@@ -43,19 +48,44 @@ export function StoryCarousel({ scenes, audioUrl, title, name }: Props) {
   const canPrev = index > 0;
   const canNext = index < total - 1;
 
-  // When scene changes while audio is playing, seek to that scene's position.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: title/name are stable per story
-  useEffect(() => {
+  /** Seek audio to scene start and record the stop boundary. */
+  function applySceneToAudio(sceneIndex: number) {
     const audio = audioRef.current;
-    if (!audio || !playing || !audio.duration) return;
-    audio.currentTime = sceneSeekTime(
+    if (!audio || !Number.isFinite(audio.duration)) return;
+    const [start, end] = sceneRange(
       title,
       name,
       scenes,
-      index,
+      sceneIndex,
       audio.duration,
     );
-  }, [index, playing]);
+    audio.currentTime = start;
+    sceneEndRef.current = end;
+  }
+
+  /** Stop at scene boundary when audio ticks past it. */
+  function handleTimeUpdate() {
+    const audio = audioRef.current;
+    const end = sceneEndRef.current;
+    if (!audio || end === null) return;
+    if (audio.currentTime >= end) {
+      audio.pause();
+      audio.currentTime = end;
+      sceneEndRef.current = null;
+      setPlaying(false);
+    }
+  }
+
+  /** When audio metadata loads mid-play, apply the seek we couldn't do earlier. */
+  function handleLoadedMetadata() {
+    if (playing) applySceneToAudio(index);
+  }
+
+  /** Re-seek when the user navigates while audio is playing. */
+  // biome-ignore lint/correctness/useExhaustiveDependencies: title/name/scenes stable per story
+  useEffect(() => {
+    if (playing) applySceneToAudio(index);
+  }, [index]);
 
   function navigate(next: number) {
     setIndex(next);
@@ -66,18 +96,10 @@ export function StoryCarousel({ scenes, audioUrl, title, name }: Props) {
     if (!audio) return;
     if (playing) {
       audio.pause();
+      sceneEndRef.current = null;
       setPlaying(false);
     } else {
-      // If audio hasn't seeked to current scene yet, do it now.
-      if (audio.duration && audio.currentTime === 0) {
-        audio.currentTime = sceneSeekTime(
-          title,
-          name,
-          scenes,
-          index,
-          audio.duration,
-        );
-      }
+      applySceneToAudio(index);
       audio.play().catch(() => setAudioError(true));
       setPlaying(true);
     }
@@ -89,8 +111,13 @@ export function StoryCarousel({ scenes, audioUrl, title, name }: Props) {
       <audio
         ref={audioRef}
         src={audioUrl}
-        onEnded={() => setPlaying(false)}
+        onEnded={() => {
+          setPlaying(false);
+          sceneEndRef.current = null;
+        }}
         onError={() => setAudioError(true)}
+        onTimeUpdate={handleTimeUpdate}
+        onLoadedMetadata={handleLoadedMetadata}
       />
 
       {/* Image */}
@@ -103,12 +130,10 @@ export function StoryCarousel({ scenes, audioUrl, title, name }: Props) {
         />
         <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-transparent to-transparent" />
 
-        {/* Scene counter */}
         <div className="absolute top-4 left-4 font-[family-name:var(--font-display)] text-xs text-[#c9a84c] tracking-widest uppercase opacity-60">
           Scene {index + 1} / {total}
         </div>
 
-        {/* Prev arrow */}
         {canPrev && (
           <button
             type="button"
@@ -120,7 +145,6 @@ export function StoryCarousel({ scenes, audioUrl, title, name }: Props) {
           </button>
         )}
 
-        {/* Next arrow */}
         {canNext && (
           <button
             type="button"
@@ -133,7 +157,7 @@ export function StoryCarousel({ scenes, audioUrl, title, name }: Props) {
         )}
       </div>
 
-      {/* Dot indicators */}
+      {/* Dots */}
       <div className="flex justify-center gap-2 mt-4">
         {scenes.map((_, i) => (
           <button
@@ -156,7 +180,7 @@ export function StoryCarousel({ scenes, audioUrl, title, name }: Props) {
         </p>
       </div>
 
-      {/* Text nav + narration */}
+      {/* Nav + narration */}
       <div className="flex items-center justify-between mt-10">
         <button
           type="button"
