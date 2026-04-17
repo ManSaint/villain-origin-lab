@@ -1,6 +1,6 @@
 import { NarrationPlayer } from "@/components/NarrationPlayer";
 import { ShareButton } from "@/components/ShareButton";
-import { StoryScene } from "@/components/StoryScene";
+import { StoryCarousel } from "@/components/StoryCarousel";
 import { getStory } from "@/lib/storage";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -40,15 +40,7 @@ export default async function StoryPage({ params }: Props) {
         </p>
       </div>
 
-      <div className="max-w-3xl mx-auto px-4 py-8">
-        {story.scenes.map((scene, i) => (
-          <StoryScene
-            key={scene.imagePrompt.slice(0, 30)}
-            scene={scene}
-            index={i}
-          />
-        ))}
-      </div>
+      <StoryCarousel scenes={story.scenes} />
 
       <div className="sticky bottom-0 border-t border-[#2a2a2a] bg-[#0a0a0a]/95 backdrop-blur-sm">
         <div className="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between gap-4 flex-wrap">
